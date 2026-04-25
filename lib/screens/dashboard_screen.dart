@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
 import '../modules/speech_practice/speech_screen.dart';
+import '../modules/writing_practice/writing_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -330,6 +331,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const SpeechScreen(),
+                              ),
+                            );
+                          } else if (module['title'] == 'Practice Writing') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const WritingScreen(),
                               ),
                             );
                           } else {
