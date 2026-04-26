@@ -36,7 +36,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_fonts: ^6.2.1
   shared_preferences: ^2.3.2
-  permission_handler: ^11.0.0
+  permission_handler: ^11.3.0
   firebase_core: ^4.7.0
   firebase_auth: ^6.4.0
   cloud_firestore: ^6.3.0
@@ -92,3 +92,9 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  shared_preferences_android: 2.2.2
+  path_provider_android: 2.2.4
+  path_provider: 2.1.2
+  permission_handler_android: 11.1.0

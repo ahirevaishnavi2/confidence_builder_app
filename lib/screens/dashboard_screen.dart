@@ -4,6 +4,9 @@ import '../services/auth_service.dart';
 import '../modules/speech_practice/speech_screen.dart';
 import '../modules/writing_practice/writing_screen.dart';
 import '../modules/flashcards/flashcard_screen.dart';
+import '../modules/vocabulary/vocabulary_screen.dart';
+import '../modules/learning_hub/learning_hub_screen.dart';
+import '../modules/confidence_booster/confidence_booster_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -34,10 +37,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'description': 'Write on topics & improve your writing',
     },
     {
-      'title': 'Flashcards',
+      'title': 'Flashcards & Vocabulary',
       'icon': Icons.style,
       'color': Colors.orange,
-      'description': 'Learn key phrases & vocabulary',
+      'description': 'Interactive vocab flashcards, quiz & reading',
     },
     {
       'title': 'Reminders',
@@ -46,10 +49,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'description': 'Set daily practice reminders',
     },
     {
-      'title': 'Improvement Hub',
+      'title': 'Learning Hub',
       'icon': Icons.school,
       'color': Colors.purple,
-      'description': 'Books, TED Talks & notes',
+      'description': 'Speaking guides, body language & debate tips',
+    },
+    {
+      'title': 'Confidence Booster',
+      'icon': Icons.favorite,
+      'color': Colors.pink,
+      'description': 'Quick relief for anxiety & presentation nerves',
     },
   ];
 
@@ -342,11 +351,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 builder: (context) => const WritingScreen(),
                               ),
                             );
-                          } else if (module['title'] == 'Flashcards') {
+                          } else if (module['title'] == 'Flashcards & Vocabulary') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const FlashcardScreen(),
+                                builder: (context) => const VocabularyScreen(),
+                              ),
+                            );
+                          } else if (module['title'] == 'Learning Hub') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const LearningHubScreen(),
+                              ),
+                            );
+                          } else if (module['title'] == 'Confidence Booster') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ConfidenceBoosterScreen(),
                               ),
                             );
                           } else {
