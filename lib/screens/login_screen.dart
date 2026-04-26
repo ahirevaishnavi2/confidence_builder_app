@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -46,30 +48,50 @@ class _LoginScreenState extends State<LoginScreen> {
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
-
-    final storage = StorageService();
-    await storage.init();
-
-    String userName = _emailController.text.split('@')[0];
-    await storage.saveUser(userName, _emailController.text);
-    await storage.setLoggedIn(true);
-    await storage.updateStreak();
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Login successful!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
-        ),
+    try {
+      final authService = AuthService();
+      await authService.signInWithEmail(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      final storage = StorageService();
+      await storage.init();
+
+      String userName = _emailController.text.split('@')[0];
+      await storage.saveUser(userName, _emailController.text);
+      await storage.setLoggedIn(true);
+      await storage.updateStreak();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Login successful!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          ),
+        );
+
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showError(e.message ?? 'An error occurred during login');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showError('An unexpected error occurred');
+      }
     }
   }
 

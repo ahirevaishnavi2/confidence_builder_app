@@ -19,3 +19,8 @@ Thumbs.db
 
 # Logs
 *.log
+
+.agents/rules
+android/app/google-services.json
+
+.flutter-plugins-dependencies

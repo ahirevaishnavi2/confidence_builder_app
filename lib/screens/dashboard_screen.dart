@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
+import '../services/auth_service.dart';
 import '../modules/speech_practice/speech_screen.dart';
 import '../modules/writing_practice/writing_screen.dart';
 import '../modules/flashcards/flashcard_screen.dart';
@@ -488,6 +489,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
+    final authService = AuthService();
+    await authService.signOut();
+
     final storage = StorageService();
     await storage.init();
     await storage.logout();

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 import '../services/storage_service.dart';
 
 class SignupScreen extends StatefulWidget {
@@ -48,28 +50,49 @@ class _SignupScreenState extends State<SignupScreen> {
       _isLoading = true;
     });
 
-    await Future.delayed(const Duration(seconds: 1));
-
-    final storage = StorageService();
-    await storage.init();
-    await storage.saveUser(_nameController.text, _emailController.text);
-    await storage.setLoggedIn(true);
-    await storage.updateStreak();
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✅ Account created successfully!'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
+    try {
+      final authService = AuthService();
+      await authService.signUpWithEmail(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+        name: _nameController.text.trim(),
       );
 
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      final storage = StorageService();
+      await storage.init();
+      await storage.saveUser(_nameController.text, _emailController.text);
+      await storage.setLoggedIn(true);
+      await storage.updateStreak();
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Account created successfully!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showError(e.message ?? 'An error occurred during signup');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        _showError('An unexpected error occurred');
+      }
     }
   }
 
