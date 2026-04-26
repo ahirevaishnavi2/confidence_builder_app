@@ -38,8 +38,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     },
     {
       'title': 'Flashcards & Vocabulary',
+      'title': 'Flashcards & Vocabulary',
       'icon': Icons.style,
       'color': Colors.orange,
+      'description': 'Interactive vocab flashcards, quiz & reading',
       'description': 'Interactive vocab flashcards, quiz & reading',
     },
     {
