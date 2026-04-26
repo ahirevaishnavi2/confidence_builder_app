@@ -5,6 +5,7 @@ import '../modules/writing_practice/writing_screen.dart';
 import '../modules/flashcards/flashcard_screen.dart';
 import '../modules/vocabulary/vocabulary_screen.dart';
 import '../modules/learning_hub/learning_hub_screen.dart';
+import '../modules/confidence_booster/confidence_booster_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -51,6 +52,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'icon': Icons.school,
       'color': Colors.purple,
       'description': 'Speaking guides, body language & debate tips',
+    },
+    {
+      'title': 'Confidence Booster',
+      'icon': Icons.favorite,
+      'color': Colors.pink,
+      'description': 'Quick relief for anxiety & presentation nerves',
     },
   ];
 
@@ -356,6 +363,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               MaterialPageRoute(
                                 builder: (context) =>
                                     const LearningHubScreen(),
+                              ),
+                            );
+                          } else if (module['title'] == 'Confidence Booster') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ConfidenceBoosterScreen(),
                               ),
                             );
                           } else {
