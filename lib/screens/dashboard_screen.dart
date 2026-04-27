@@ -37,12 +37,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       'description': 'Write on topics & improve your writing',
     },
     {
-      'title': 'Flashcards & Vocabulary',
-      'title': 'Flashcards & Vocabulary',
-      'icon': Icons.style,
+      'title': 'Vocabulary Practice',
+      'icon': Icons.book,
       'color': Colors.orange,
-      'description': 'Interactive vocab flashcards, quiz & reading',
-      'description': 'Interactive vocab flashcards, quiz & reading',
+      'description': 'Learn new words, take quizzes & improve reading',
+    },
+    {
+      'title': 'My Flashcards',
+      'icon': Icons.style,
+      'color': Colors.amber,
+      'description': 'Create, edit & practice your own flashcards',
     },
     {
       'title': 'Reminders',
@@ -353,11 +357,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 builder: (context) => const WritingScreen(),
                               ),
                             );
-                          } else if (module['title'] == 'Flashcards & Vocabulary') {
+                          } else if (module['title'] == 'Vocabulary Practice') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const VocabularyScreen(),
+                              ),
+                            );
+                          } else if (module['title'] == 'My Flashcards') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const FlashcardScreen(),
                               ),
                             );
                           } else if (module['title'] == 'Learning Hub') {
