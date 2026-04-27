@@ -7,6 +7,7 @@ import '../modules/flashcards/flashcard_screen.dart';
 import '../modules/vocabulary/vocabulary_screen.dart';
 import '../modules/learning_hub/learning_hub_screen.dart';
 import '../modules/confidence_booster/confidence_booster_screen.dart';
+import '../modules/reminders/reminders_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -384,6 +385,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const ConfidenceBoosterScreen(),
+                              ),
+                            );
+                          } else if (module['title'] == 'Reminders') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const RemindersScreen(),
                               ),
                             );
                           } else {
