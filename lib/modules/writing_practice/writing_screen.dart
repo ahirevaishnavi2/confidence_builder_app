@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../services/ai_service.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -105,83 +106,43 @@ class _WritingScreenState extends State<WritingScreen> {
     );
   }
 
-  void _generateFeedback() {
-    String feedback;
+  bool _isGeneratingFeedback = false;
+  final AIService _aiService = AIService();
+
+  void _generateFeedback() async {
     final writing = _userWriting;
 
     if (writing.isEmpty) {
-      feedback = "⚠️ No writing detected. Try writing something next time!";
-    } else {
-      // Word count analysis
-      final wordCount = writing.split(' ').length;
-
-      // Character count
-      final charCount = writing.length;
-
-      // Sentence count (basic)
-      final sentenceCount = writing.split(RegExp(r'[.!?]+')).length - 1;
-
-      // Check for basic structure
-      final hasIntroduction = writing.toLowerCase().contains(
-        RegExp(r'(first|to begin|initially|introduction)'),
-      );
-      final hasConclusion = writing.toLowerCase().contains(
-        RegExp(r'(finally|in conclusion|to sum up|overall)'),
-      );
-
-      // Build feedback
-      feedback = "📊 **Writing Analysis**\n\n";
-      feedback += "• Word count: $wordCount words\n";
-      feedback += "• Characters: $charCount characters\n";
-      feedback += "• Sentences: ~$sentenceCount sentences\n\n";
-
-      // Length feedback
-      if (wordCount < 50) {
-        feedback +=
-            "📝 Your response is quite short. Try to elaborate more on your ideas. Aim for 150-300 words.\n\n";
-      } else if (wordCount > 500) {
-        feedback +=
-            "🎉 Excellent length! Your response is very detailed and comprehensive.\n\n";
-      } else {
-        feedback += "✅ Good length! Your response is well-developed.\n\n";
-      }
-
-      // Structure feedback
-      if (hasIntroduction) {
-        feedback += "✓ Good use of an introduction to start your response.\n";
-      } else {
-        feedback +=
-            "💡 Tip: Start with an introduction to set context for your reader.\n";
-      }
-
-      if (hasConclusion) {
-        feedback +=
-            "✓ Great job including a conclusion to wrap up your thoughts.\n";
-      } else {
-        feedback +=
-            "💡 Tip: End with a conclusion to summarize your main points.\n";
-      }
-
-      // Quality feedback based on length
-      if (wordCount > 150) {
-        feedback +=
-            "\n🌟 Your writing shows good depth! The detailed examples strengthen your response.";
-      } else if (wordCount > 50) {
-        feedback +=
-            "\n👍 Good start! Add more specific examples to make your writing stronger.";
-      } else {
-        feedback +=
-            "\n📈 Keep practicing! Try to write at least 150 words next time.";
-      }
-
-      // Add vocabulary tip
-      feedback +=
-          "\n\n💡 **Vocabulary Tip:** Use varied words like 'however', 'therefore', and 'consequently' to connect your ideas smoothly.";
+      setState(() {
+        _feedbackMessage = "⚠️ No writing detected. Try writing something next time!";
+      });
+      return;
     }
 
     setState(() {
-      _feedbackMessage = feedback;
+      _isGeneratingFeedback = true;
+      _feedbackMessage = "🤖 Analyzing your writing with AI...";
     });
+
+    try {
+      final feedback = await _aiService.getFeedback(
+        type: 'writing',
+        topic: _currentTopic,
+        content: writing,
+      );
+
+      setState(() {
+        _feedbackMessage = feedback;
+      });
+    } catch (e) {
+      setState(() {
+        _feedbackMessage = "❌ Error generating feedback. Please try again later.";
+      });
+    } finally {
+      setState(() {
+        _isGeneratingFeedback = false;
+      });
+    }
   }
 
   void _saveWriting() {
@@ -470,10 +431,18 @@ class _WritingScreenState extends State<WritingScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          _feedbackMessage,
-                          style: const TextStyle(fontSize: 14, height: 1.5),
-                        ),
+                        if (_isGeneratingFeedback)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        else
+                          Text(
+                            _feedbackMessage,
+                            style: const TextStyle(fontSize: 14, height: 1.5),
+                          ),
                       ],
                     ),
                   ),

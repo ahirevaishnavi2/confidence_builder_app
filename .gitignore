@@ -24,3 +24,5 @@ Thumbs.db
 android/app/google-services.json
 
 .flutter-plugins-dependencies
+
+.env

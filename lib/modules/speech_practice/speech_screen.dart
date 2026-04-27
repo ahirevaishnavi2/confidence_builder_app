@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../services/ai_service.dart';
 
 class SpeechScreen extends StatefulWidget {
   const SpeechScreen({super.key});
@@ -119,41 +120,43 @@ class _SpeechScreenState extends State<SpeechScreen> {
     );
   }
 
-  void _generateFeedback() {
-    String feedback;
+  bool _isGeneratingFeedback = false;
+  final AIService _aiService = AIService();
+
+  void _generateFeedback() async {
     final speech = _userSpeech;
 
     if (speech.isEmpty) {
-      feedback = "⚠️ No speech recorded. Try typing your speech next time!";
-    } else if (speech.length < 50) {
-      feedback =
-          "📝 Short speech! Try to elaborate more on your topic. Aim for 2 minutes of speaking.";
-    } else if (speech.length > 500) {
-      feedback =
-          "🎉 Great length! Your speech was substantial. Focus on clarity and key messages.";
-    } else {
-      feedback =
-          "🎯 Good job! Your speech has good content. Try practicing with a timer next time.";
-    }
-
-    // Add word count feedback
-    final wordCount = speech.split(' ').length;
-    feedback += "\n\n📊 Word count: $wordCount words";
-
-    // Add simple confidence rating
-    if (wordCount > 100) {
-      feedback +=
-          "\n💪 Confidence Level: High! You spoke extensively on the topic.";
-    } else if (wordCount > 50) {
-      feedback += "\n👍 Confidence Level: Medium. Keep practicing to improve!";
-    } else {
-      feedback +=
-          "\n📈 Confidence Level: Building. Try speaking more next time!";
+      setState(() {
+        _feedbackMessage = "⚠️ No speech recorded. Try typing your speech next time!";
+      });
+      return;
     }
 
     setState(() {
-      _feedbackMessage = feedback;
+      _isGeneratingFeedback = true;
+      _feedbackMessage = "🤖 Analyzing your speech with AI...";
     });
+
+    try {
+      final feedback = await _aiService.getFeedback(
+        type: 'speech',
+        topic: _currentTopic,
+        content: speech,
+      );
+
+      setState(() {
+        _feedbackMessage = feedback;
+      });
+    } catch (e) {
+      setState(() {
+        _feedbackMessage = "❌ Error generating feedback. Please try again later.";
+      });
+    } finally {
+      setState(() {
+        _isGeneratingFeedback = false;
+      });
+    }
   }
 
   void _showError(String message) {
@@ -428,10 +431,18 @@ class _SpeechScreenState extends State<SpeechScreen> {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          _feedbackMessage,
-                          style: const TextStyle(fontSize: 14, height: 1.5),
-                        ),
+                        if (_isGeneratingFeedback)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(20),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        else
+                          Text(
+                            _feedbackMessage,
+                            style: const TextStyle(fontSize: 14, height: 1.5),
+                          ),
                       ],
                     ),
                   ),
