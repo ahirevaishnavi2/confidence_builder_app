@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/ai_service.dart';
+import '../../services/storage_service.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -95,6 +96,10 @@ class _WritingScreenState extends State<WritingScreen> {
       _isPracticing = false;
       _userWriting = _writingController.text;
     });
+
+    // Record this session for analytics
+    StorageService().recordSession();
+
     _generateFeedback();
 
     ScaffoldMessenger.of(context).showSnackBar(

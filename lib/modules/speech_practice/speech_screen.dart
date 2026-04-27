@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../services/ai_service.dart';
+import '../../services/storage_service.dart';
 
 class SpeechScreen extends StatefulWidget {
   const SpeechScreen({super.key});
@@ -109,6 +110,10 @@ class _SpeechScreenState extends State<SpeechScreen> {
       _isPracticing = false;
       _userSpeech = _speechController.text;
     });
+    
+    // Record this session for analytics
+    StorageService().recordSession();
+    
     _generateFeedback();
 
     ScaffoldMessenger.of(context).showSnackBar(

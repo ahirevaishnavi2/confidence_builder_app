@@ -13,6 +13,9 @@ class StorageService {
   static const String _keyStreakCount = 'streak_count';
   static const String _keyLastLoginDate = 'last_login_date';
   static const String _keyTodayProgress = 'today_progress';
+  static const String _keySessionsToday = 'sessions_today';
+  static const String _keySessionsThisWeek = 'sessions_this_week';
+  static const String _keyLastSessionDate = 'last_session_date';
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -84,6 +87,95 @@ class StorageService {
 
   int get todayProgress {
     return _prefs.getInt(_keyTodayProgress) ?? 0;
+  }
+
+  // --- Session Tracking ---
+
+  Future<void> recordSession() async {
+    await init();
+    final now = DateTime.now();
+    final lastDateStr = _prefs.getString(_keyLastSessionDate);
+    DateTime? lastDate;
+
+    if (lastDateStr != null) {
+      try {
+        lastDate = DateTime.parse(lastDateStr);
+      } catch (e) {
+        lastDate = null;
+      }
+    }
+
+    int sessionsToday = _prefs.getInt(_keySessionsToday) ?? 0;
+    int sessionsThisWeek = _prefs.getInt(_keySessionsThisWeek) ?? 0;
+
+    if (lastDate != null) {
+      // Check if it's a new day
+      if (lastDate.year != now.year ||
+          lastDate.month != now.month ||
+          lastDate.day != now.day) {
+        sessionsToday = 0;
+      }
+
+      // Check if it's a new week (Monday reset)
+      if (_isNewWeek(lastDate, now)) {
+        sessionsThisWeek = 0;
+      }
+    }
+
+    sessionsToday++;
+    sessionsThisWeek++;
+
+    await _prefs.setInt(_keySessionsToday, sessionsToday);
+    await _prefs.setInt(_keySessionsThisWeek, sessionsThisWeek);
+    await _prefs.setString(_keyLastSessionDate, now.toIso8601String());
+  }
+
+  bool _isNewWeek(DateTime lastDate, DateTime now) {
+    // Monday is 1, Sunday is 7 in Dart's DateTime
+    final lastMonday = lastDate.subtract(Duration(days: lastDate.weekday - 1));
+    final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+
+    final lastMondayDate =
+        DateTime(lastMonday.year, lastMonday.month, lastMonday.day);
+    final currentMondayDate =
+        DateTime(currentMonday.year, currentMonday.month, currentMonday.day);
+
+    return currentMondayDate.isAfter(lastMondayDate);
+  }
+
+  int get sessionsToday {
+    // Also handle daily reset here in case they just opened the app
+    final now = DateTime.now();
+    final lastDateStr = _prefs.getString(_keyLastSessionDate);
+    if (lastDateStr != null) {
+      try {
+        final lastDate = DateTime.parse(lastDateStr);
+        if (lastDate.year != now.year ||
+            lastDate.month != now.month ||
+            lastDate.day != now.day) {
+          return 0;
+        }
+      } catch (e) {
+        return 0;
+      }
+    }
+    return _prefs.getInt(_keySessionsToday) ?? 0;
+  }
+
+  int get sessionsThisWeek {
+    final now = DateTime.now();
+    final lastDateStr = _prefs.getString(_keyLastSessionDate);
+    if (lastDateStr != null) {
+      try {
+        final lastDate = DateTime.parse(lastDateStr);
+        if (_isNewWeek(lastDate, now)) {
+          return 0;
+        }
+      } catch (e) {
+        return 0;
+      }
+    }
+    return _prefs.getInt(_keySessionsThisWeek) ?? 0;
   }
 
   Future<void> logout() async {

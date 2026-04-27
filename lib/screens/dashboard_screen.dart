@@ -8,6 +8,8 @@ import '../modules/vocabulary/vocabulary_screen.dart';
 import '../modules/learning_hub/learning_hub_screen.dart';
 import '../modules/confidence_booster/confidence_booster_screen.dart';
 import '../modules/reminders/reminders_screen.dart';
+import '../services/flashcard_service.dart';
+import '../models/flashcard_model.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -446,8 +448,34 @@ class HomeScreenContent extends StatelessWidget {
   }
 }
 
-class ProgressScreen extends StatelessWidget {
+class ProgressScreen extends StatefulWidget {
   const ProgressScreen({super.key});
+
+  @override
+  State<ProgressScreen> createState() => _ProgressScreenState();
+}
+
+class _ProgressScreenState extends State<ProgressScreen> {
+  int _sessionsToday = 0;
+  int _sessionsThisWeek = 0;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final storage = StorageService();
+    await storage.init();
+
+    setState(() {
+      _sessionsToday = storage.sessionsToday;
+      _sessionsThisWeek = storage.sessionsThisWeek;
+      _isLoading = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -466,40 +494,208 @@ class ProgressScreen extends StatelessWidget {
             colors: [Colors.deepPurple.shade50, Colors.purple.shade50],
           ),
         ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionTitle('Activity Tracking'),
+                    const SizedBox(height: 16),
+                    _buildActivityCard(
+                      title: 'Sessions Today',
+                      count: _sessionsToday,
+                      goal: 5,
+                      color: Colors.blue,
+                      icon: Icons.today,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActivityCard(
+                      title: 'Sessions This Week',
+                      count: _sessionsThisWeek,
+                      goal: 25,
+                      color: Colors.green,
+                      icon: Icons.calendar_view_week,
+                    ),
+                    const SizedBox(height: 32),
+                    _buildSectionTitle('Vocabulary Milestones'),
+                    const SizedBox(height: 16),
+                    StreamBuilder<List<Flashcard>>(
+                      stream: FlashcardService().getFlashcards(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        final flashcards = snapshot.data ?? [];
+                        final totalSeen = flashcards.length;
+                        final totalMastered =
+                            flashcards.where((f) => f.isMastered).length;
+
+                        return _buildVocabCard(
+                          mastered: totalMastered,
+                          seen: totalSeen,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 40),
+                    Center(
+                      child: Text(
+                        'Keep practicing to build your confidence! 🚀',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        color: Colors.deepPurple.shade800,
+      ),
+    );
+  }
+
+  Widget _buildActivityCard({
+    required String title,
+    required int count,
+    required int goal,
+    required Color color,
+    required IconData icon,
+  }) {
+    final progress = (count / goal).clamp(0.0, 1.0);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.show_chart, size: 80, color: Colors.deepPurple),
-              const SizedBox(height: 20),
-              const Text(
-                'Progress Analytics',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
-                ),
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
               Text(
-                'Coming Soon! 🚀',
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushReplacementNamed(context, '/dashboard');
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple.shade700,
-                  foregroundColor: Colors.white,
+                '$count / $goal',
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
                 ),
-                child: const Text('Back to Home'),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 12,
+              backgroundColor: color.withValues(alpha: 0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${(progress * 100).toInt()}% of your goal',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildVocabCard({required int mastered, required int seen}) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.deepPurple.shade700, Colors.deepPurple.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(25),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.deepPurple.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.auto_awesome, color: Colors.amber, size: 40),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStat('Mastered', mastered.toString(), Colors.amber),
+              Container(height: 40, width: 1, color: Colors.white24),
+              _buildStat('Total Seen', seen.toString(), Colors.white),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Keep reviewing to master more words!',
+            style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStat(String label, String value, Color valueColor) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+            color: valueColor,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 14),
+        ),
+      ],
     );
   }
 }

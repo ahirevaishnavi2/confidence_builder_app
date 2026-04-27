@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/vocabulary_model.dart';
 import '../../data/vocabulary_data.dart';
+import '../../services/storage_service.dart';
 
 class VocabularyScreen extends StatefulWidget {
   const VocabularyScreen({super.key});
@@ -1141,6 +1142,8 @@ class _QuizViewState extends State<_QuizView> {
       });
     } else {
       setState(() => _quizFinished = true);
+      // Record session for analytics
+      StorageService().recordSession();
     }
   }
 
