@@ -21,8 +21,9 @@ Thumbs.db
 *.log
 
 .agents/rules
-android/app/google-services.json
+#android/app/google-services.json
 
 .flutter-plugins-dependencies
 
 .env
+gradle_signing_report.txt
