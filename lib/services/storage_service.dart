@@ -16,6 +16,7 @@ class StorageService {
   static const String _keySessionsToday = 'sessions_today';
   static const String _keySessionsThisWeek = 'sessions_this_week';
   static const String _keyLastSessionDate = 'last_session_date';
+  static const String _keyMemberSince = 'member_since';
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -32,6 +33,15 @@ class StorageService {
   Future<void> saveUser(String name, String email) async {
     await _prefs.setString(_keyUserName, name);
     await _prefs.setString(_keyUserEmail, email);
+    
+    // Set member since if it doesn't exist
+    if (_prefs.getString(_keyMemberSince) == null) {
+      await _prefs.setString(_keyMemberSince, DateTime.now().year.toString());
+    }
+  }
+
+  String get memberSince {
+    return _prefs.getString(_keyMemberSince) ?? DateTime.now().year.toString();
   }
 
   String get userName {
@@ -58,21 +68,24 @@ class StorageService {
     int currentStreak = _prefs.getInt(_keyStreakCount) ?? 0;
 
     if (lastDate == null) {
-      currentStreak = 1;
-    } else if (lastDate.year == today.year &&
-        lastDate.month == today.month &&
-        lastDate.day == today.day) {
-      return currentStreak;
-    } else if (lastDate.year == today.year &&
-        lastDate.month == today.month &&
-        lastDate.day == today.day - 1) {
-      currentStreak++;
+      // New user, streak stays 0 until first session
+      currentStreak = 0;
     } else {
-      currentStreak = 1;
-    }
+      final yesterday = today.subtract(const Duration(days: 1));
+      bool isYesterday = lastDate.year == yesterday.year &&
+          lastDate.month == yesterday.month &&
+          lastDate.day == yesterday.day;
+      bool isToday = lastDate.year == today.year &&
+          lastDate.month == today.month &&
+          lastDate.day == today.day;
 
-    await _prefs.setInt(_keyStreakCount, currentStreak);
-    await _prefs.setString(_keyLastLoginDate, today.toIso8601String());
+      if (!isToday && !isYesterday) {
+        // Missed more than a day, reset streak to 0
+        // (It will become 1 when they record a session today)
+        currentStreak = 0;
+        await _prefs.setInt(_keyStreakCount, 0);
+      }
+    }
 
     return currentStreak;
   }
@@ -128,6 +141,36 @@ class StorageService {
     await _prefs.setInt(_keySessionsToday, sessionsToday);
     await _prefs.setInt(_keySessionsThisWeek, sessionsThisWeek);
     await _prefs.setString(_keyLastSessionDate, now.toIso8601String());
+
+    // --- Update Streak ---
+    if (sessionsToday == 1) {
+      int currentStreak = _prefs.getInt(_keyStreakCount) ?? 0;
+      final lastLoginStr = _prefs.getString(_keyLastLoginDate);
+      DateTime? lastLogin;
+      if (lastLoginStr != null) {
+        lastLogin = DateTime.parse(lastLoginStr);
+      }
+
+      if (lastLogin == null) {
+        currentStreak = 1;
+      } else {
+        final yesterday = now.subtract(const Duration(days: 1));
+        bool isYesterday = lastLogin.year == yesterday.year &&
+            lastLogin.month == yesterday.month &&
+            lastLogin.day == yesterday.day;
+        bool isToday = lastLogin.year == now.year &&
+            lastLogin.month == now.month &&
+            lastLogin.day == now.day;
+
+        if (isYesterday) {
+          currentStreak++;
+        } else if (!isToday) {
+          currentStreak = 1;
+        }
+      }
+      await _prefs.setInt(_keyStreakCount, currentStreak);
+      await _prefs.setString(_keyLastLoginDate, now.toIso8601String());
+    }
   }
 
   bool _isNewWeek(DateTime lastDate, DateTime now) {

@@ -91,21 +91,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {
       _userName = _storage.userName;
       _streakCount = _storage.streakCount;
-      _todayProgress = _storage.todayProgress;
+      // Calculate progress percentage based on sessions (Goal is 5)
+      final sessions = _storage.sessionsToday;
+      _todayProgress = ((sessions / 5) * 100).toInt();
+      if (_todayProgress > 100) _todayProgress = 100;
     });
-
-    if (_todayProgress == 0) {
-      await _storage.updateProgress(40);
-      setState(() {
-        _todayProgress = 40;
-      });
-    }
   }
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+    // Refresh data when switching tabs
+    _loadUserData();
   }
 
   @override
@@ -166,26 +164,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Welcome back,',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Welcome back,',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
                               ),
-                            ),
-                            Text(
-                              _userName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
+                              Text(
+                                _userName,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 10),
                         GestureDetector(
                           onTap: () {
                             setState(() {
@@ -214,45 +216,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'You have a $_streakCount day streak! Keep going! 🔥',
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            child: Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.local_fire_department,
-                                      color: Colors.orange,
-                                      size: 20,
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'You have a $_streakCount day streak! Keep going! 🔥',
                                     ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      '$_streakCount Day Streak!',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              child: Column(
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.local_fire_department,
+                                        color: Colors.orange,
+                                        size: 20,
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const Text(
-                                  'Keep going! 🔥',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
+                                      const SizedBox(width: 5),
+                                      Flexible(
+                                        child: Text(
+                                          '$_streakCount Day Streak!',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
+                                  const Text(
+                                    'Keep going! 🔥',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                           Container(
@@ -260,35 +268,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             width: 1,
                             color: Colors.white30,
                           ),
-                          GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Complete modules to reach 100%! Currently at $_todayProgress%',
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Complete modules to reach 100%! Currently at $_todayProgress%',
+                                    ),
+                                    duration: const Duration(seconds: 2),
                                   ),
-                                  duration: const Duration(seconds: 2),
-                                ),
-                              );
-                            },
-                            child: Column(
-                              children: [
-                                Text(
-                                  '$_todayProgress%',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 18,
+                                );
+                              },
+                              child: Column(
+                                children: [
+                                  Text(
+                                    '$_todayProgress%',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
                                   ),
-                                ),
-                                const Text(
-                                  'Today\'s Goal',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12,
+                                  const Text(
+                                    'Today\'s Goal',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -352,28 +362,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               MaterialPageRoute(
                                 builder: (context) => const SpeechScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else if (module['title'] == 'Practice Writing') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const WritingScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else if (module['title'] == 'Vocabulary Practice') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const VocabularyScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else if (module['title'] == 'My Flashcards') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const FlashcardScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else if (module['title'] == 'Learning Hub') {
                             Navigator.push(
                               context,
@@ -381,21 +391,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 builder: (context) =>
                                     const LearningHubScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else if (module['title'] == 'Confidence Booster') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const ConfidenceBoosterScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else if (module['title'] == 'Reminders') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => const RemindersScreen(),
                               ),
-                            );
+                            ).then((_) => _loadUserData());
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
@@ -598,19 +608,25 @@ class _ProgressScreenState extends State<ProgressScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(icon, color: color, size: 24),
-                  const SizedBox(width: 12),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(icon, color: color, size: 24),
+                    const SizedBox(width: 12),
+                    Flexible(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Text(
                 '$count / $goal',
                 style: TextStyle(
@@ -710,6 +726,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String _userName = "";
   String _userEmail = "";
+  String _memberSince = "";
   int _streakCount = 0;
 
   @override
@@ -725,6 +742,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _userName = storage.userName;
       _userEmail = storage.userEmail;
+      _memberSince = storage.memberSince;
       _streakCount = storage.streakCount;
     });
   }
@@ -760,63 +778,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.deepPurple.shade200,
-                child: const Icon(
-                  Icons.person,
-                  size: 60,
-                  color: Colors.deepPurple,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                _userName,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.deepPurple,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                _userEmail,
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-              ),
-              const SizedBox(height: 30),
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 40),
-                child: ListTile(
-                  leading: const Icon(Icons.local_fire_department),
-                  title: const Text('Current Streak'),
-                  trailing: Text('$_streakCount days'),
-                ),
-              ),
-              Card(
-                margin: const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
-                child: const ListTile(
-                  leading: Icon(Icons.auto_awesome),
-                  title: Text('Member since'),
-                  trailing: Text('2024'),
-                ),
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: _logout,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade400,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 40,
-                    vertical: 12,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.deepPurple.shade200,
+                  child: const Icon(
+                    Icons.person,
+                    size: 60,
+                    color: Colors.deepPurple,
                   ),
                 ),
-                child: const Text('Logout'),
-              ),
-            ],
+                const SizedBox(height: 20),
+                Text(
+                  _userName,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _userEmail,
+                  style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 30),
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 40),
+                  child: ListTile(
+                    leading: const Icon(Icons.local_fire_department),
+                    title: const Text('Current Streak'),
+                    trailing: Text('$_streakCount days'),
+                  ),
+                ),
+                Card(
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 40, vertical: 8),
+                  child: ListTile(
+                    leading: const Icon(Icons.auto_awesome),
+                    title: const Text('Member since'),
+                    trailing: Text(_memberSince),
+                  ),
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _logout,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade400,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 40,
+                      vertical: 12,
+                    ),
+                  ),
+                  child: const Text('Logout'),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -899,6 +921,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   );
                 },
+              ),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: OutlinedButton(
+                onPressed: () async {
+                  final storage = StorageService();
+                  await storage.init();
+                  await storage.clearAllData();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'All data reset. Please restart or log in again.',
+                        ),
+                      ),
+                    );
+                    Navigator.pushReplacementNamed(context, '/login');
+                  }
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Reset All App Data'),
               ),
             ),
           ],
