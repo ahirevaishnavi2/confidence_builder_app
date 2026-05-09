@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../services/ai_service.dart';
 import '../../services/storage_service.dart';
 
@@ -14,6 +15,7 @@ class SpeechScreen extends StatefulWidget {
 class _SpeechScreenState extends State<SpeechScreen> {
   bool _hasPermission = false;
   bool _isPracticing = false;
+  bool _isListening = false;
 
   String _currentTopic = "";
   String _userSpeech = "";
@@ -21,6 +23,9 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
   int _timerSeconds = 120; // 2 minutes
   Timer? _timer;
+
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  String _lastWords = "";
 
   final List<String> _topics = [
     "Tell me about a time you overcame a challenge",
@@ -40,18 +45,33 @@ class _SpeechScreenState extends State<SpeechScreen> {
   @override
   void initState() {
     super.initState();
-    _checkPermission();
+    _initSpeech();
     _generateRandomTopic();
   }
 
-  Future<void> _checkPermission() async {
+  Future<void> _initSpeech() async {
     final status = await Permission.microphone.request();
+    bool available = false;
+    
+    if (status.isGranted) {
+      available = await _speech.initialize(
+        onStatus: (status) {
+          debugPrint('Speech status: $status');
+          if (status == 'notListening' && _isPracticing) {
+            // Keep listening if we are still practicing
+            _startListening();
+          }
+        },
+        onError: (errorNotification) => debugPrint('Error: $errorNotification'),
+      );
+    }
+
     setState(() {
-      _hasPermission = status.isGranted;
+      _hasPermission = status.isGranted && available;
     });
 
     if (!_hasPermission) {
-      _showError("Microphone permission is required for speech practice");
+      _showError("Microphone or Speech Recognition not available. Please check permissions.");
     }
   }
 
@@ -60,6 +80,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
     setState(() {
       _currentTopic = _topics[randomIndex];
       _userSpeech = "";
+      _lastWords = "";
       _feedbackMessage = "";
       _speechController.clear();
     });
@@ -85,29 +106,58 @@ class _SpeechScreenState extends State<SpeechScreen> {
     return "${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}";
   }
 
-  void _startPractice() {
+  Future<void> _startListening() async {
+    if (!_hasPermission) return;
+    
+    await _speech.listen(
+      onResult: (result) {
+        setState(() {
+          _lastWords = result.recognizedWords;
+          _speechController.text = _userSpeech + (_userSpeech.isNotEmpty ? " " : "") + _lastWords;
+        });
+      },
+      localeId: 'en_IN', // Specifically targeting Indian English accent
+      listenMode: stt.ListenMode.dictation,
+      cancelOnError: false,
+      partialResults: true,
+    );
+    setState(() => _isListening = true);
+  }
+
+  void _startPractice() async {
+    if (!_hasPermission) {
+      await _initSpeech();
+      if (!_hasPermission) return;
+    }
+
     setState(() {
       _isPracticing = true;
       _timerSeconds = 120;
       _userSpeech = "";
+      _lastWords = "";
       _feedbackMessage = "";
+      _speechController.clear();
     });
+    
     _startTimer();
+    _startListening();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text(
-          "🎤 Practice started! Speak on the topic. Type your speech below.",
-        ),
+        content: Text("🎤 Recording started! Start speaking on the topic."),
+        backgroundColor: Colors.deepPurple,
         duration: Duration(seconds: 3),
       ),
     );
   }
 
-  void _stopPractice() {
+  void _stopPractice() async {
     _timer?.cancel();
+    await _speech.stop();
+    
     setState(() {
       _isPracticing = false;
+      _isListening = false;
       _userSpeech = _speechController.text;
     });
     
@@ -118,7 +168,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("Great job! Check your feedback below."),
+        content: Text("Practice stopped. Analyzing your speech..."),
         backgroundColor: Colors.green,
         duration: Duration(seconds: 2),
       ),
@@ -133,7 +183,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
     if (speech.isEmpty) {
       setState(() {
-        _feedbackMessage = "⚠️ No speech recorded. Try typing your speech next time!";
+        _feedbackMessage = "⚠️ No speech detected. Please make sure your microphone is working and you are speaking clearly.";
       });
       return;
     }
@@ -177,6 +227,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _speech.stop();
     _speechController.dispose();
     super.dispose();
   }
@@ -192,7 +243,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: _generateRandomTopic,
+            onPressed: _isPracticing ? null : _generateRandomTopic,
             tooltip: 'New Topic',
           ),
         ],
@@ -261,31 +312,67 @@ class _SpeechScreenState extends State<SpeechScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // Timer Display
-                      Container(
-                        width: 120,
-                        height: 120,
-                        decoration: BoxDecoration(
-                          color: _isPracticing
-                              ? Colors.green.shade100
-                              : Colors.deepPurple.shade100,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            _formatTime(_timerSeconds),
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
+                      // Timer/Mic Visualizer Display
+                      Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 140,
+                            height: 140,
+                            decoration: BoxDecoration(
                               color: _isPracticing
-                                  ? Colors.green.shade700
-                                  : Colors.deepPurple.shade700,
+                                  ? Colors.red.withValues(alpha: 0.1)
+                                  : Colors.deepPurple.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
                             ),
                           ),
-                        ),
+                          if (_isListening)
+                            _PulseAnimation(
+                              isListening: _isListening,
+                              child: Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.2),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: _isPracticing
+                                  ? Colors.red.shade100
+                                  : Colors.deepPurple.shade100,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isPracticing ? Icons.mic : Icons.mic_none,
+                                    color: _isPracticing ? Colors.red : Colors.deepPurple,
+                                  ),
+                                  Text(
+                                    _formatTime(_timerSeconds),
+                                    style: TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isPracticing
+                                          ? Colors.red.shade700
+                                          : Colors.deepPurple.shade700,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
 
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
 
                       // Practice/Stop Button
                       SizedBox(
@@ -295,10 +382,10 @@ class _SpeechScreenState extends State<SpeechScreen> {
                               ? _stopPractice
                               : _startPractice,
                           icon: Icon(
-                            _isPracticing ? Icons.stop : Icons.play_arrow,
+                            _isPracticing ? Icons.stop : Icons.mic,
                           ),
                           label: Text(
-                            _isPracticing ? 'Stop Practice' : 'Start Practice',
+                            _isPracticing ? 'Finish Speaking' : 'Start Speaking',
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: _isPracticing
@@ -313,38 +400,15 @@ class _SpeechScreenState extends State<SpeechScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 16),
 
                       if (_isPracticing)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.green.shade100,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Practice in progress... Type your speech below!',
-                                style: TextStyle(
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
+                        Text(
+                          'Listening for Indian English accent... 🇮🇳',
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontStyle: FontStyle.italic,
+                            fontSize: 13,
                           ),
                         ),
                     ],
@@ -354,7 +418,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
               const SizedBox(height: 20),
 
-              // Speech Input Card
+              // Speech Input Card (Transcription)
               Card(
                 elevation: 4,
                 shape: RoundedRectangleBorder(
@@ -367,10 +431,10 @@ class _SpeechScreenState extends State<SpeechScreen> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.edit_note, color: Colors.deepPurple),
+                          Icon(Icons.text_fields, color: Colors.deepPurple),
                           SizedBox(width: 8),
                           Text(
-                            'Your Speech',
+                            'Live Transcription',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -381,25 +445,17 @@ class _SpeechScreenState extends State<SpeechScreen> {
                       const SizedBox(height: 10),
                       TextField(
                         controller: _speechController,
-                        maxLines: 8,
+                        maxLines: 6,
+                        readOnly: true,
                         decoration: InputDecoration(
                           hintText: _isPracticing
-                              ? "Type your speech here as you speak..."
-                              : "Type or paste your speech here...",
+                              ? "Your words will appear here as you speak..."
+                              : "No transcription yet.",
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           filled: true,
-                          fillColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tip: Type what you say to get feedback!',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontStyle: FontStyle.italic,
+                          fillColor: Colors.grey.shade50,
                         ),
                       ),
                     ],
@@ -427,7 +483,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
                             Icon(Icons.auto_awesome, color: Colors.blue),
                             SizedBox(width: 8),
                             Text(
-                              'AI Feedback',
+                              'AI Analysis',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -471,7 +527,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
                           Icon(Icons.lightbulb, color: Colors.orange),
                           SizedBox(width: 8),
                           Text(
-                            'Quick Tips',
+                            'Practice Tips',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -480,11 +536,11 @@ class _SpeechScreenState extends State<SpeechScreen> {
                         ],
                       ),
                       const SizedBox(height: 10),
-                      const Text('• Read the topic carefully before starting'),
-                      const Text('• Type your speech as you practice'),
-                      const Text('• Aim for 2 minutes of speaking'),
-                      const Text('• Review the AI feedback to improve'),
-                      const Text('• Try new topics to build confidence'),
+                      const Text('• Speak clearly and at a moderate pace'),
+                      const Text('• Stay close to the microphone'),
+                      const Text('• The app is optimized for Indian accents'),
+                      const Text('• AI will analyze your content and structure'),
+                      const Text('• Try to fill the full 2 minutes'),
                     ],
                   ),
                 ),
@@ -493,6 +549,48 @@ class _SpeechScreenState extends State<SpeechScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PulseAnimation extends StatefulWidget {
+  final Widget child;
+  final bool isListening;
+
+  const _PulseAnimation({required this.child, required this.isListening});
+
+  @override
+  State<_PulseAnimation> createState() => _PulseAnimationState();
+}
+
+class _PulseAnimationState extends State<_PulseAnimation>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.8, end: 1.2).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _animation,
+      child: widget.child,
     );
   }
 }
