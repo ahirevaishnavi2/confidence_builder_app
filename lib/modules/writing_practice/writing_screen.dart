@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/ai_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/prompt_service.dart';
 
 class WritingScreen extends StatefulWidget {
   const WritingScreen({super.key});
@@ -20,7 +21,7 @@ class _WritingScreenState extends State<WritingScreen> {
   int _timerSeconds = 600; // 10 minutes for writing
   Timer? _timer;
 
-  final List<String> _topics = [
+  List<String> _topics = [
     "Describe a situation where you had to convince someone to see things your way.",
     "Write about a time you failed and what you learned from it.",
     "What is the most important quality for a leader? Explain why.",
@@ -33,12 +34,26 @@ class _WritingScreenState extends State<WritingScreen> {
     "What is one skill you want to improve and why?",
   ];
 
+  final PromptService _promptService = PromptService();
+
   final TextEditingController _writingController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _generateRandomTopic();
+    _loadPrompts();
+  }
+
+  Future<void> _loadPrompts() async {
+    final firebasePrompts = await _promptService.getPrompts('writing');
+    if (firebasePrompts.isNotEmpty) {
+      setState(() {
+        _topics = firebasePrompts;
+        _generateRandomTopic(); // Re-generate with new topics
+      });
+    } else {
+      _generateRandomTopic(); // Use hardcoded ones
+    }
   }
 
   void _generateRandomTopic() {

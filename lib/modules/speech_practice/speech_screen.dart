@@ -4,6 +4,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import '../../services/ai_service.dart';
 import '../../services/storage_service.dart';
+import '../../services/prompt_service.dart';
 
 class SpeechScreen extends StatefulWidget {
   const SpeechScreen({super.key});
@@ -29,7 +30,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
   String _wordsSpoken = "";
   String _finalSpeech = "";
 
-  final List<String> _topics = [
+  List<String> _topics = [
     "Tell me about a time you overcame a challenge",
     "What is your greatest strength and why?",
     "Describe a person who has influenced your life",
@@ -42,13 +43,27 @@ class _SpeechScreenState extends State<SpeechScreen> {
     "If you could have any superpower, what would it be?",
   ];
 
+  final PromptService _promptService = PromptService();
+
   final TextEditingController _speechController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _initSpeech();
-    _generateRandomTopic();
+    _loadPrompts();
+  }
+
+  Future<void> _loadPrompts() async {
+    final firebasePrompts = await _promptService.getPrompts('speech');
+    if (firebasePrompts.isNotEmpty) {
+      setState(() {
+        _topics = firebasePrompts;
+        _generateRandomTopic(); // Re-generate with new topics
+      });
+    } else {
+      _generateRandomTopic(); // Use hardcoded ones
+    }
   }
 
   /// Initializing speech recognition
