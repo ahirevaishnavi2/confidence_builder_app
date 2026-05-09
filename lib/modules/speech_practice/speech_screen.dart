@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import '../../services/ai_service.dart';
 import '../../services/storage_service.dart';
 
@@ -22,6 +23,12 @@ class _SpeechScreenState extends State<SpeechScreen> {
   int _timerSeconds = 120; // 2 minutes
   Timer? _timer;
 
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  bool _isPaused = false;
+  String _wordsSpoken = "";
+  String _finalSpeech = "";
+
   final List<String> _topics = [
     "Tell me about a time you overcame a challenge",
     "What is your greatest strength and why?",
@@ -40,18 +47,38 @@ class _SpeechScreenState extends State<SpeechScreen> {
   @override
   void initState() {
     super.initState();
-    _checkPermission();
+    _initSpeech();
     _generateRandomTopic();
   }
 
-  Future<void> _checkPermission() async {
+  /// Initializing speech recognition
+  void _initSpeech() async {
+    // Request microphone permission explicitly first
     final status = await Permission.microphone.request();
-    setState(() {
-      _hasPermission = status.isGranted;
-    });
+    if (!status.isGranted) {
+      _showError("Microphone permission is required for speech-to-text");
+      return;
+    }
 
-    if (!_hasPermission) {
-      _showError("Microphone permission is required for speech practice");
+    try {
+      _speechEnabled = await _speechToText.initialize(
+        onStatus: (status) {
+          debugPrint('Speech status: $status');
+          if (status == 'done' || status == 'notListening') {
+            // Logic to handle if it stops listening unexpectedly
+          }
+        },
+        onError: (errorNotification) {
+          debugPrint('Speech error: $errorNotification');
+          if (_isPracticing) {
+            _showError("Speech recognition error: ${errorNotification.errorMsg}");
+          }
+        },
+      );
+      setState(() {});
+    } catch (e) {
+      debugPrint('Speech initialization failed: $e');
+      _speechEnabled = false;
     }
   }
 
@@ -86,28 +113,80 @@ class _SpeechScreenState extends State<SpeechScreen> {
   }
 
   void _startPractice() {
+    if (!_speechEnabled) {
+      _initSpeech();
+    }
+
     setState(() {
       _isPracticing = true;
+      _isPaused = false;
       _timerSeconds = 120;
       _userSpeech = "";
+      _wordsSpoken = "";
+      _finalSpeech = "";
       _feedbackMessage = "";
+      _speechController.clear();
     });
     _startTimer();
+    _startListening();
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
-          "🎤 Practice started! Speak on the topic. Type your speech below.",
+          "🎤 Practice started! Speak on the topic.",
         ),
         duration: Duration(seconds: 3),
       ),
     );
   }
 
+  void _startListening() async {
+    await _speechToText.listen(
+      onResult: _onSpeechResult,
+      listenFor: const Duration(minutes: 2),
+      cancelOnError: false,
+      partialResults: true,
+    );
+  }
+
+  void _onSpeechResult(result) {
+    setState(() {
+      _wordsSpoken = result.recognizedWords;
+      // Append the current recognition to the previously finalized speech
+      _speechController.text = _finalSpeech + _wordsSpoken;
+    });
+  }
+
+  void _togglePause() {
+    if (_isPaused) {
+      // Resume
+      setState(() {
+        _isPaused = false;
+      });
+      _startTimer();
+      _startListening();
+    } else {
+      // Pause
+      _timer?.cancel();
+      _stopListening();
+      setState(() {
+        _isPaused = true;
+        // Finalize the current recognized words into _finalSpeech
+        _finalSpeech = _speechController.text;
+        // Add a space for the next segment if it doesn't end with one
+        if (_finalSpeech.isNotEmpty && !_finalSpeech.endsWith(" ")) {
+          _finalSpeech += " ";
+        }
+      });
+    }
+  }
+
   void _stopPractice() {
     _timer?.cancel();
+    _stopListening();
     setState(() {
       _isPracticing = false;
+      _isPaused = false;
       _userSpeech = _speechController.text;
     });
     
@@ -123,6 +202,10 @@ class _SpeechScreenState extends State<SpeechScreen> {
         duration: Duration(seconds: 2),
       ),
     );
+  }
+
+  void _stopListening() async {
+    await _speechToText.stop();
   }
 
   bool _isGeneratingFeedback = false;
@@ -287,30 +370,53 @@ class _SpeechScreenState extends State<SpeechScreen> {
 
                       const SizedBox(height: 20),
 
-                      // Practice/Stop Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: _isPracticing
-                              ? _stopPractice
-                              : _startPractice,
-                          icon: Icon(
-                            _isPracticing ? Icons.stop : Icons.play_arrow,
-                          ),
-                          label: Text(
-                            _isPracticing ? 'Stop Practice' : 'Start Practice',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _isPracticing
-                                ? Colors.red
-                                : Colors.deepPurple.shade700,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
+                      // Action Buttons (Start/Stop/Pause)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _isPracticing
+                                  ? _stopPractice
+                                  : _startPractice,
+                              icon: Icon(
+                                _isPracticing ? Icons.stop : Icons.play_arrow,
+                              ),
+                              label: Text(
+                                _isPracticing
+                                    ? 'Stop Practice'
+                                    : 'Start Practice',
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _isPracticing
+                                    ? Colors.red
+                                    : Colors.deepPurple.shade700,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 15),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          if (_isPracticing) ...[
+                            const SizedBox(width: 10),
+                            IconButton.filled(
+                              onPressed: _togglePause,
+                              icon: Icon(
+                                _isPaused ? Icons.play_arrow : Icons.pause,
+                              ),
+                              style: IconButton.styleFrom(
+                                backgroundColor: _isPaused
+                                    ? Colors.green
+                                    : Colors.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.all(15),
+                              ),
+                              tooltip: _isPaused ? 'Resume' : 'Pause',
+                            ),
+                          ],
+                        ],
                       ),
 
                       const SizedBox(height: 10),
@@ -322,7 +428,9 @@ class _SpeechScreenState extends State<SpeechScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade100,
+                            color: _isPaused
+                                ? Colors.orange.shade100
+                                : Colors.green.shade100,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Row(
@@ -331,16 +439,18 @@ class _SpeechScreenState extends State<SpeechScreen> {
                               Container(
                                 width: 10,
                                 height: 10,
-                                decoration: const BoxDecoration(
-                                  color: Colors.green,
+                                decoration: BoxDecoration(
+                                  color: _isPaused ? Colors.orange : Colors.green,
                                   shape: BoxShape.circle,
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Text(
-                                'Practice in progress... Type your speech below!',
+                              Text(
+                                _isPaused
+                                    ? 'Practice Paused'
+                                    : 'Listening... Speak now!',
                                 style: TextStyle(
-                                  color: Colors.green,
+                                  color: _isPaused ? Colors.orange : Colors.green,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -384,8 +494,10 @@ class _SpeechScreenState extends State<SpeechScreen> {
                         maxLines: 8,
                         decoration: InputDecoration(
                           hintText: _isPracticing
-                              ? "Type your speech here as you speak..."
-                              : "Type or paste your speech here...",
+                              ? (_isPaused
+                                  ? "Practice paused. Resume to continue."
+                                  : "Listening to your speech...")
+                              : "Transcribed speech will appear here...",
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -395,7 +507,7 @@ class _SpeechScreenState extends State<SpeechScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Tip: Type what you say to get feedback!',
+                        'Tip: Your speech is automatically converted to text.',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
